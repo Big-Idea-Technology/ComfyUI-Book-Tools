@@ -54,7 +54,7 @@ class PromptSelector:
 class PromptSchedule:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {"text": ("STRING", {"multiline": True, "default":"'first page description',\n'second page description'"}),
+        return {"required": {"text": ("STRING", {"multiline": True, "default":"\"first page description\",\n\"second page description\""}),
             "before_text": ("STRING", {"multiline": True,}),
             "after_text": ("STRING", {"multiline": True,}),
             }}

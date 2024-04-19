@@ -1,3 +1,5 @@
+![Screenshot](screen.png)
+
 ## Features
 Image Text Overlay: Add customizable text overlays to images.
 Prompt Selection and Scheduling: Manage and format string prompts based on configurable parameters.
