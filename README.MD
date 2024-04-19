@@ -10,20 +10,20 @@ To run the scripts, you need Python 3.6 or higher. Dependencies are listed in re
 pip install -r requirements.txt
 
 ## Requirements
-
 Pillow for image processing (PIL)
 PyTorch (torch) for tensor operations
 Numpy (numpy)
 
 ## Methods
-# add_text_overlay: Adds text to an image according to specified parameters such as alignment, color, font size, etc.
-# PromptSelector and PromptSchedule
+
+- add_text_overlay: Adds text to an image according to specified parameters such as alignment, color, font size, etc.
+- PromptSelector and PromptSchedule
 These classes are used to handle and format text prompts. They support selecting prompts based on input indices and applying pre- and post-text to formatted outputs.
 
-# Loop, LoopStart, LoopEnd
+- Loop, LoopStart, LoopEnd
 A set of classes designed to facilitate custom loop constructs that can dynamically handle iteration based on runtime conditions.
 
-# EndQueue
+- EndQueue
 Conditioning end of current queue
 
 ## Contributions
