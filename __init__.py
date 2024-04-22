@@ -11,7 +11,7 @@ class AnyType(str):
 
 any = AnyType("*")
 
-class PromptSelector:
+class BookToolsPromptSelector:
     """
     Selects and concatenates values from a dictionary based on input indices and ranges.
     The input string contains 1-based indices which are converted to dictionary keys.
@@ -51,7 +51,7 @@ class PromptSelector:
         result_string = ', '.join(dictionary.get(key.strip(), '') for key in selected_keys)
         return (result_string,)
 
-class PromptSchedule:
+class BookToolsPromptSchedule:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"text": ("STRING", {"multiline": True, "default":"\"first page description\",\n\"second page description\""}),
@@ -88,7 +88,7 @@ class PromptSchedule:
         return (formatted_texts,)
 
 # based on https://civitai.com/models/26836/comfyui-loopback-nodes but take any parametrs and have reset option
-class Loop:
+class BookToolsLoop:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {}}
@@ -100,7 +100,7 @@ class Loop:
     def run(self):
         return (self,)
 
-class LoopStart:
+class BookToolsLoopStart:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
@@ -129,7 +129,7 @@ class LoopStart:
             return id(loop.next)
         return float("NaN")
 
-class LoopEnd:
+class BookToolsLoopEnd:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": { "send_to_next_loop": (any, ), "loop": ("LOOP",) }}
@@ -142,7 +142,7 @@ class LoopEnd:
         loop.next = send_to_next_loop
         return ()
 
-class EndQueue:
+class BookToolsEndQueue:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": { "boolean": ("BOOLEAN", {"default": False}), }}
@@ -156,7 +156,7 @@ class EndQueue:
             interrupt_processing()
         return ()
 
-class ImageTextOverlay:
+class BookToolsImageTextOverlay:
     def __init__(self, device="cpu"):
         self.device = device
     _alignments = ["left", "right", "center"]
@@ -257,21 +257,21 @@ class ImageTextOverlay:
         return (image_tensor_out,)
     
 NODE_CLASS_MAPPINGS = {
-    "PromptSelector": PromptSelector,
-    "PromptSchedule": PromptSchedule,
-    "Loop": Loop,
-    "LoopStart": LoopStart,
-    "LoopEnd": LoopEnd,
-    "EndQueue": EndQueue,
-    "ImageTextOverlay": ImageTextOverlay,
+    "PromptSelector": BookToolsPromptSelector,
+    "PromptSchedule": BookToolsPromptSchedule,
+    "Loop": BookToolsLoop,
+    "LoopStart": BookToolsLoopStart,
+    "LoopEnd": BookToolsLoopEnd,
+    "EndQueue": BookToolsEndQueue,
+    "ImageTextOverlay": BookToolsImageTextOverlay,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "PromptSelector": "Prompt Selector",
-    "PromptSchedule": "Prompt Batch Schedule",
-    "LoopInt": "Loop",
-    "LoopStartInt": "Loop Start",
-    "LoopEndInt": "Loop End",
-    "EndQueue": "End Queue",
-    "ImageTextOverlay": "Image Text Overlay"
+    "PromptSelector": "[Book Tools] Prompt Selector",
+    "PromptSchedule": "[Book Tools] Prompt Batch Schedule",
+    "Loop": "[Book Tools] Loop",
+    "LoopStart": "[Book Tools] Loop Start",
+    "LoopEnd": "[Book Tools] Loop End",
+    "EndQueue": "[Book Tools] End Queue",
+    "ImageTextOverlay": "[Book Tools] Image Text Overlay"
 }
