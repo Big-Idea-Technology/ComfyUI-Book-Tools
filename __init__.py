@@ -257,8 +257,8 @@ class BookToolsImageTextOverlay:
         return (image_tensor_out,)
     
 NODE_CLASS_MAPPINGS = {
-    "PromptSelector": BookToolsPromptSelector,
-    "PromptSchedule": BookToolsPromptSchedule,
+    "BTPromptSelector": BookToolsPromptSelector,
+    "BTPromptSchedule": BookToolsPromptSchedule,
     "Loop": BookToolsLoop,
     "LoopStart": BookToolsLoopStart,
     "LoopEnd": BookToolsLoopEnd,
@@ -267,8 +267,8 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "PromptSelector": "[Book Tools] Prompt Selector",
-    "PromptSchedule": "[Book Tools] Prompt Batch Schedule",
+    "BTPromptSelector": "[Book Tools] Prompt Selector",
+    "BTPromptSchedule": "[Book Tools] Prompt Batch Schedule",
     "Loop": "[Book Tools] Loop",
     "LoopStart": "[Book Tools] Loop Start",
     "LoopEnd": "[Book Tools] Loop End",
