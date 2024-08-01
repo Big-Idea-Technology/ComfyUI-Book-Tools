@@ -2,7 +2,7 @@
 name = "comfyui-book-tools"
 description = "ComfyUI-Book-Tools is a set o new nodes for ComfyUI that allows users to easily add text overlays to images within their ComfyUI projects. This Node leverages Python Imaging Library (PIL) and PyTorch to dynamically render text on images, supporting a wide range of customization options including font size, alignment, color, and padding. Loop with any parameters (*), prompt batch schedule with prompt selector, end queue for automatic ending current queue."
 version = "1.0.0"
-license = "LICENSE"
+license = { file = "LICENSE" }
 
 [project.urls]
 Repository = "https://github.com/Big-Idea-Technology/ComfyUI-Book-Tools"
