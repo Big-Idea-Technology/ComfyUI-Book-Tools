@@ -10,6 +10,7 @@ class AnyType(str):
     return False
 
 any = AnyType("*")
+loop_interation = 0
 
 class BookToolsPromptSelector:
     """
@@ -112,14 +113,18 @@ class BookToolsLoopStart:
 
     FUNCTION = "run"
     CATEGORY = "loopback"
-    RETURN_TYPES = (any,)
+    RETURN_TYPES = (any, "INT",)
+    RETURN_NAMES = ("*", "Iteration",)
 
     def run(self, first_loop, reset, loop):
+        global loop_interation
+        loop_interation +=1
         if (reset == True):
-            return (first_loop,)
+            loop_interation = 1
+            return (first_loop, loop_interation)
         if hasattr(loop, 'next'):
-            return (loop.next,)
-        return (first_loop,)
+            return (loop.next, loop_interation)
+        return (first_loop, loop_interation)
 
     @classmethod
     def IS_CHANGED(s, first_loop, reset, loop):
