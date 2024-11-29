@@ -92,21 +92,25 @@ class BookToolsPromptSchedule:
 class BookToolsLoop:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {}}
+        return {"required": {"reset": ("BOOLEAN", {"default": False}),}}
 
     RETURN_TYPES = ("LOOP", "INT",)
     FUNCTION = "run"
     CATEGORY = "loopback"
     RETURN_NAMES = ("LOOP", "Iteration",)
 
-    def run(self):
+    def run(self, reset):
         global loop_interation
+        if (reset == True):
+            loop_interation = 1
         return (self, loop_interation)
 
     @classmethod
-    def IS_CHANGED(self):
+    def IS_CHANGED(self, reset):
         global loop_interation
         loop_interation +=1
+        if (reset == True):
+            loop_interation = 1
         return loop_interation
                    
 class BookToolsLoopStart:
@@ -114,7 +118,6 @@ class BookToolsLoopStart:
     def INPUT_TYPES(s):
         return {"required": {
             "first_loop": (any,),
-            "reset": ("BOOLEAN", {"default": False}),
             "loop": ("LOOP",)
             }
         }
@@ -124,19 +127,13 @@ class BookToolsLoopStart:
     RETURN_TYPES = (any,)
     RETURN_NAMES = ("*",)
 
-    def run(self, first_loop, reset, loop):
-        global loop_interation
-        if (reset == True):
-            loop_interation = 1
-            return (first_loop,)
+    def run(self, first_loop, loop):
         if hasattr(loop, 'next'):
             return (loop.next,)
         return (first_loop,)
 
     @classmethod
-    def IS_CHANGED(self, first_loop, reset, loop):
-        if (reset == True):
-            return (first_loop,)
+    def IS_CHANGED(self, first_loop, loop):
         if hasattr(loop, 'next'):
             return id(loop.next)
         return float("NaN")
