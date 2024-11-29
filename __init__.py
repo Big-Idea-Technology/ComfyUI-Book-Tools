@@ -94,13 +94,21 @@ class BookToolsLoop:
     def INPUT_TYPES(s):
         return {"required": {}}
 
-    RETURN_TYPES = ("LOOP",)
+    RETURN_TYPES = ("LOOP", "INT",)
     FUNCTION = "run"
     CATEGORY = "loopback"
+    RETURN_NAMES = ("LOOP", "Iteration",)
 
     def run(self):
-        return (self,)
+        global loop_interation
+        return (self, loop_interation)
 
+    @classmethod
+    def IS_CHANGED(self):
+        global loop_interation
+        loop_interation +=1
+        return loop_interation
+                   
 class BookToolsLoopStart:
     @classmethod
     def INPUT_TYPES(s):
@@ -113,21 +121,20 @@ class BookToolsLoopStart:
 
     FUNCTION = "run"
     CATEGORY = "loopback"
-    RETURN_TYPES = (any, "INT",)
-    RETURN_NAMES = ("*", "Iteration",)
+    RETURN_TYPES = (any,)
+    RETURN_NAMES = ("*",)
 
     def run(self, first_loop, reset, loop):
         global loop_interation
-        loop_interation +=1
         if (reset == True):
             loop_interation = 1
-            return (first_loop, loop_interation)
+            return (first_loop,)
         if hasattr(loop, 'next'):
-            return (loop.next, loop_interation)
-        return (first_loop, loop_interation)
+            return (loop.next,)
+        return (first_loop,)
 
     @classmethod
-    def IS_CHANGED(s, first_loop, reset, loop):
+    def IS_CHANGED(self, first_loop, reset, loop):
         if (reset == True):
             return (first_loop,)
         if hasattr(loop, 'next'):
