@@ -11,7 +11,7 @@ class AnyType(str):
 
 any = AnyType("*")
 loop_interation = 0
-
+reset_global = False
 class BookToolsPromptSelector:
     """
     Selects and concatenates values from a dictionary based on input indices and ranges.
@@ -27,12 +27,12 @@ class BookToolsPromptSelector:
         """
         Describes expected input types:
         - 'dictionary': a dictionary where keys will be selected based on 'selected_indexes'.
-        - 'selected_indexes': a string listing keys by index, separated by commas, with optional ranges.
+        - 'selected_indexes': a int listing keys by index, separated by commas, with optional ranges.
         """
         return {
             "required": {
                 "dictionary": ("DICTIONARY", ),
-                "selected_indexes": ("STRING", {
+                "selected_indexes": ("INT", {
                     "multiline": False,
                     "default": "1,2,3"
                 }),
@@ -44,12 +44,15 @@ class BookToolsPromptSelector:
     CATEGORY = "selector"
     OUTPUT_NODE = False
 
-    def main(self, dictionary: dict, selected_indexes: str):
+    def main(self, dictionary: dict, selected_indexes: int):
         if not isinstance(dictionary, dict):
             raise ValueError("Conditioning must be a dictionary.")
 
-        selected_keys = selected_indexes.split(',')
-        result_string = ', '.join(dictionary.get(key.strip(), '') for key in selected_keys)
+        if not isinstance(selected_indexes, int):
+            raise ValueError("selected_indexes must be an integer.")
+
+        result_string = str(dictionary.get(selected_indexes, ''))
+        
         return (result_string,)
 
 class BookToolsPromptSchedule:
@@ -100,17 +103,23 @@ class BookToolsLoop:
     RETURN_NAMES = ("LOOP", "Iteration",)
 
     def run(self, reset):
-        global loop_interation
+        global loop_interation, reset_global
         if (reset == True):
             loop_interation = 1
+            reset_global = True
+        else:
+            reset_global = False
         return (self, loop_interation)
 
     @classmethod
     def IS_CHANGED(self, reset):
-        global loop_interation
+        global loop_interation, reset_global
         loop_interation +=1
         if (reset == True):
             loop_interation = 1
+            reset_global = True
+        else:
+            reset_global = False
         return loop_interation
                    
 class BookToolsLoopStart:
@@ -128,12 +137,18 @@ class BookToolsLoopStart:
     RETURN_NAMES = ("*",)
 
     def run(self, first_loop, loop):
+        global reset_global
+        if reset_global == True:
+            return (first_loop,)
         if hasattr(loop, 'next'):
             return (loop.next,)
         return (first_loop,)
 
     @classmethod
     def IS_CHANGED(self, first_loop, loop):
+        global reset_global
+        if reset_global == True:
+            return (first_loop,)
         if hasattr(loop, 'next'):
             return id(loop.next)
         return float("NaN")
