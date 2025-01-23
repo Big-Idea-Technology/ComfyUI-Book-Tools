@@ -50,8 +50,8 @@ class BookToolsPromptSelector:
 
         if not isinstance(selected_indexes, int):
             raise ValueError("selected_indexes must be an integer.")
-
-        result_string = str(dictionary.get(selected_indexes, ''))
+        
+        result_string = str(dictionary.get(str(selected_indexes), ''))
         
         return (result_string,)
 
