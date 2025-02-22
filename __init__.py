@@ -180,6 +180,99 @@ class BookToolsEndQueue:
             interrupt_processing()
         return ()
 
+class BookToolsDownloadFont:
+    # Known working fonts from Google Fonts
+    SUPPORTED_FONTS = {
+        "Delius": "Delius:wght@400",
+        "DejaVuSans-Bold": "DejaVuSans-Bold",
+        "FreeMono": "FreeMono:wght@400",
+    }
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "font_name": (list(cls.SUPPORTED_FONTS.keys()), {"default": "Open Sans"}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "download_font"
+    CATEGORY = "image/text"
+
+    def download_font(self, font_name):
+        import requests
+        import os
+        from urllib.parse import urlparse
+        
+        # Default fallback font
+        fallback_font = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        
+        # Create fonts directory if it doesn't exist
+        fonts_dir = os.path.join(os.path.dirname(__file__), "fonts")
+        os.makedirs(fonts_dir, exist_ok=True)
+        
+        font_path = os.path.join(fonts_dir, f"{font_name.replace(' ', '_')}.ttf")
+        
+        # If font already exists, verify it can be loaded
+        if os.path.exists(font_path):
+            try:
+                ImageFont.truetype(font_path, 12)  # Test load with small size
+                return (font_path,)
+            except Exception:
+                print(f"Cached font {font_name} is corrupt, attempting redownload...")
+                os.remove(font_path)
+        
+        # Download font from Google Fonts
+        api_url = f"https://fonts.googleapis.com/css2?family={self.SUPPORTED_FONTS[font_name]}"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        try:
+            # Get the CSS
+            response = requests.get(api_url, headers=headers)
+            response.raise_for_status()
+            css = response.text
+            
+            # Extract the font URL using more robust parsing
+            for line in css.split('\n'):
+                if 'src:' in line and 'url(' in line:
+                    start = line.find('url(') + 4
+                    end = line.find(')', start)
+                    font_url = line[start:end].strip()
+                    break
+            else:
+                raise ValueError("Could not find font URL in CSS")
+            
+            # Validate URL
+            parsed_url = urlparse(font_url)
+            if not all([parsed_url.scheme, parsed_url.netloc]):
+                raise ValueError("Invalid font URL")
+            
+            # Download the font file
+            font_response = requests.get(font_url, headers=headers)
+            font_response.raise_for_status()
+            
+            # Save the font file
+            with open(font_path, 'wb') as f:
+                f.write(font_response.content)
+            
+            # Verify the downloaded font
+            try:
+                ImageFont.truetype(font_path, 12)
+                return (font_path,)
+            except Exception as e:
+                print(f"Downloaded font {font_name} is invalid: {str(e)}")
+                if os.path.exists(font_path):
+                    os.remove(font_path)
+                raise
+                
+        except Exception as e:
+            print(f"Error downloading font {font_name}: {str(e)}")
+            print(f"Falling back to default font: {fallback_font}")
+            return (fallback_font,)
+
 class BookToolsImageTextOverlay:
     def __init__(self, device="cpu"):
         self.device = device
@@ -193,14 +286,15 @@ class BookToolsImageTextOverlay:
                 "text": ("STRING", {"multiline": True, "default": "Hello"}),
                 "textbox_width": ("INT", {"default": 200, "min": 1}),  
                 "textbox_height": ("INT", {"default": 200, "min": 1}),  
-                "max_font_size": ("INT", {"default": 30, "min": 1, "max": 256, "step": 1}),  
+                "max_font_size": ("INT", {"default": 80, "min": 1, "max": 256, "step": 1}),
+                "min_font_size": ("INT", {"default": 12, "min": 1, "max": 256, "step": 1}),
                 "font": ("STRING", {"default": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"}), 
                 "alignment": (cls._alignments, {"default": "center"}),  
                 "color": ("STRING", {"default": "#000000"}),  
                 "start_x": ("INT", {"default": 0}),  
                 "start_y": ("INT", {"default": 0}),
                 "padding": ("INT", {"default": 50}),
-                "line_height": ("INT", {"default": 20, "min": 1}),
+                "line_height_factor": ("FLOAT", {"default": 1.2, "min": 0.5, "max": 3.0, "step": 0.1}),
             }
         }
 
@@ -208,73 +302,96 @@ class BookToolsImageTextOverlay:
     FUNCTION = "add_text_overlay"
     CATEGORY = "image/text"
 
-    def wrap_text_and_calculate_height(self, text, font, max_width, line_height):
-        wrapped_lines = []
-        # Split the input text by newline characters to respect manual line breaks
+    def calculate_text_size(self, text, font_size, font_path, max_width, max_height):
+        font = ImageFont.truetype(font_path, font_size)
         paragraphs = text.split('\n')
+        lines = []
         
         for paragraph in paragraphs:
             words = paragraph.split()
-            current_line = words[0] if words else ''
-            
-            for word in words[1:]:
-                # Test if adding a new word exceeds the max width
-                test_line = current_line + ' ' + word if current_line else word
-                test_line_bbox = font.getbbox(test_line)
-                w = test_line_bbox[2] - test_line_bbox[0]  # Right - Left for width
-                if w <= max_width:
-                    current_line = test_line
+            current_line = []
+            current_width = 0
+
+            for word in words:
+                word_bbox = font.getbbox(word)
+                word_width = word_bbox[2] - word_bbox[0]
+                space_width = font.getbbox(' ')[2] if current_line else 0
+                
+                if current_width + word_width + space_width <= max_width:
+                    current_line.append(word)
+                    current_width += word_width + space_width
                 else:
-                    # If the current line plus the new word exceeds max width, wrap it
-                    wrapped_lines.append(current_line)
-                    current_line = word
-            
-            # Don't forget to add the last line of the paragraph
-            wrapped_lines.append(current_line)
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                    current_line = [word]
+                    current_width = word_width
 
-        # Calculate the total height considering the custom line height
-        total_height = len(wrapped_lines) * line_height
+            if current_line:
+                lines.append(' '.join(current_line))
 
-        wrapped_text = '\n'.join(wrapped_lines)
-        return wrapped_text, total_height
+        total_height = len(lines) * (font_size * 1.2)
+        return lines, total_height <= max_height
 
-
-    def add_text_overlay(self, image, text, textbox_width, textbox_height, max_font_size, font, alignment, color, start_x, start_y, padding, line_height):
+    def add_text_overlay(self, image, text, textbox_width, textbox_height, max_font_size, min_font_size, 
+                        font, alignment, color, start_x, start_y, padding, line_height_factor):
         image_tensor = image
         image_np = image_tensor.cpu().numpy()
         image_pil = Image.fromarray((image_np.squeeze(0) * 255).astype(np.uint8))
         color_rgb = tuple(int(color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
 
-        effective_textbox_width = textbox_width - 2 * padding  # Adjust for padding
-        effective_textbox_height = textbox_height - 2 * padding
+        effective_width = textbox_width - 2 * padding
+        effective_height = textbox_height - 2 * padding
 
-        font_size = max_font_size
-        while font_size >= 1:
-            loaded_font = ImageFont.truetype(font, font_size)
-            wrapped_text, total_text_height = self.wrap_text_and_calculate_height(text, loaded_font, effective_textbox_width, line_height)
+        # Binary search for the optimal font size
+        low, high = min_font_size, max_font_size
+        optimal_font_size = min_font_size
+        optimal_lines = []
 
-            if total_text_height <= effective_textbox_height:
-                draw = ImageDraw.Draw(image_pil)
-                lines = wrapped_text.split('\n')
-                y = start_y + padding + (effective_textbox_height - total_text_height) // 2
+        while low <= high:
+            mid = (low + high) // 2
+            lines, fits = self.calculate_text_size(text, mid, font, effective_width, effective_height)
+            
+            if fits:
+                optimal_font_size = mid
+                optimal_lines = lines
+                low = mid + 1
+            else:
+                high = mid - 1
 
-                for line in lines:
-                    line_bbox = loaded_font.getbbox(line)
-                    line_width = line_bbox[2] - line_bbox[0]
+        # If no fitting size was found, use min_font_size
+        if not optimal_lines:
+            optimal_font_size = min_font_size
+            optimal_lines, _ = self.calculate_text_size(text, min_font_size, font, effective_width, effective_height)
 
-                    if alignment == "left":
-                        x = start_x + padding
-                    elif alignment == "right":
-                        x = start_x + effective_textbox_width - line_width + padding
-                    elif alignment == "center":
-                        x = start_x + padding + (effective_textbox_width - line_width) // 2
+        # Render the text with the optimal font size
+        loaded_font = ImageFont.truetype(font, optimal_font_size)
+        draw = ImageDraw.Draw(image_pil)
+        
+        line_height = int(optimal_font_size * line_height_factor)
+        total_text_height = len(optimal_lines) * line_height
+        y = start_y + padding
 
-                    draw.text((x, y), line, fill=color_rgb, font=loaded_font)
-                    y += line_height  # Use custom line height for spacing
+        # If text fits in height, center it vertically
+        if total_text_height <= effective_height:
+            y += (effective_height - total_text_height) // 2
 
-                break  # Break the loop if text fits within the specified dimensions
+        # Draw all lines, even if they overflow
+        for line in optimal_lines:
+            if y + line_height > start_y + textbox_height:  # Skip lines that would be completely outside the box
+                break
 
-            font_size -= 1  # Decrease font size and try again
+            line_bbox = loaded_font.getbbox(line)
+            line_width = line_bbox[2] - line_bbox[0]
+
+            if alignment == "left":
+                x = start_x + padding
+            elif alignment == "right":
+                x = start_x + effective_width - line_width + padding
+            else:  # center
+                x = start_x + padding + (effective_width - line_width) // 2
+
+            draw.text((x, y), line, fill=color_rgb, font=loaded_font)
+            y += line_height
 
         image_tensor_out = torch.tensor(np.array(image_pil).astype(np.float32) / 255.0)
         image_tensor_out = torch.unsqueeze(image_tensor_out, 0)
@@ -288,6 +405,7 @@ NODE_CLASS_MAPPINGS = {
     "LoopEnd": BookToolsLoopEnd,
     "EndQueue": BookToolsEndQueue,
     "ImageTextOverlay": BookToolsImageTextOverlay,
+    "DownloadFont": BookToolsDownloadFont,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -297,5 +415,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoopStart": "[Book Tools] Loop Start",
     "LoopEnd": "[Book Tools] Loop End",
     "EndQueue": "[Book Tools] End Queue",
-    "ImageTextOverlay": "[Book Tools] Image Text Overlay"
+    "ImageTextOverlay": "[Book Tools] Image Text Overlay",
+    "DownloadFont": "[Book Tools] Download Font",
 }
