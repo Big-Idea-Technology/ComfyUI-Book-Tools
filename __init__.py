@@ -187,6 +187,7 @@ class BookToolsDownloadFont:
         "Delius": "Delius:wght@400",
         "DejaVuSans-Bold": "DejaVuSans-Bold",
         "FreeMono": "FreeMono:wght@400",
+        "Roboto": "RobotoMono-VariableFont_wght",
     }
 
     @classmethod
@@ -213,7 +214,9 @@ class BookToolsDownloadFont:
         fonts_dir = os.path.join(os.path.dirname(__file__), "fonts")
         os.makedirs(fonts_dir, exist_ok=True)
         
-        font_path = os.path.join(fonts_dir, f"{font_name.replace(' ', '_')}.ttf")
+        # Use actual font filename instead of key
+        font_filename = self.SUPPORTED_FONTS[font_name] + ".ttf"
+        font_path = os.path.join(fonts_dir, font_filename)
         
         # If font already exists, verify it can be loaded
         if os.path.exists(font_path):
@@ -521,7 +524,7 @@ class BookToolsRandomTextOverlay:
         # Create separate overlay for opaque text
         text_overlay = Image.new('RGBA', image_pil.size, (0, 0, 0, 0))
         text_draw = ImageDraw.Draw(text_overlay)
-        
+        print(font)
         loaded_font = ImageFont.truetype(font, font_size)
 
         # Calculate dimensions and wrap text (existing code)
