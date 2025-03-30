@@ -524,7 +524,7 @@ class BookToolsRandomTextOverlay:
         # Create separate overlay for opaque text
         text_overlay = Image.new('RGBA', image_pil.size, (0, 0, 0, 0))
         text_draw = ImageDraw.Draw(text_overlay)
-        print(font)
+        
         loaded_font = ImageFont.truetype(font, font_size)
 
         # Calculate dimensions and wrap text (existing code)
