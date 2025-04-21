@@ -100,7 +100,7 @@ class BookToolsTextToImage:
             # Fallback to simple width calculation
             return sum(font.getbbox(char)[2] - font.getbbox(char)[0] for char in text)
 
-    def calculate_text_size(self, text, font_size, font_path, max_width, max_height, line_height_factor):
+    def calculate_text_size(self, text, font_size, font_path, max_width, max_height, line_height_factor, char_spacing_factor):
         try:
             font = ImageFont.truetype(font_path, font_size)
         except Exception as e:
@@ -109,19 +109,18 @@ class BookToolsTextToImage:
             
         paragraphs = text.split('\n')
         lines = []
-        
         max_line_width = 0
-        
+
+        # compute pixel spacing from factor
+        char_spacing = font_size * char_spacing_factor
+
         for paragraph in paragraphs:
             words = paragraph.split()
             current_line = []
             current_width = 0
             
-            # Consider character spacing in the width calculation
-            char_spacing = font_size * 0.2  # Default char_spacing from parameters
-            
             for word in words:
-                # Get word width including spacing between characters
+                # measure word width using char_spacing
                 word_width = 0
                 for char in word:
                     bbox = font.getbbox(char)
@@ -434,7 +433,7 @@ class BookToolsTextToImage:
             
             # First check if min_font_size fits
             lines, fits, actual_width, actual_height = self.calculate_text_size(
-                text, min_font_size, font, effective_width, effective_height, line_height_factor
+                text, min_font_size, font, effective_width, effective_height, line_height_factor, char_spacing
             )
             
             if fits:
@@ -442,7 +441,7 @@ class BookToolsTextToImage:
                 while low <= high:
                     mid = (low + high) // 2
                     lines, fits, actual_width, actual_height = self.calculate_text_size(
-                        text, mid, font, effective_width, effective_height, line_height_factor
+                        text, mid, font, effective_width, effective_height, line_height_factor, char_spacing
                     )
                     
                     if fits:
