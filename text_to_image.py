@@ -10,6 +10,7 @@ class BookToolsTextToImage:
         self.device = device
     _positions = ["top", "bottom"]
     _alignments = ["left", "center"]
+    _text_justifications = ["left", "center", "right"]
     _colors = [
 
     (255, 50, 50),      
@@ -81,6 +82,8 @@ class BookToolsTextToImage:
                 "background_style": (["none", "rectangle", "ribbon", "glow"], {"default": "none"}),
                 "background_color": (["auto", "dark", "light"], {"default": "auto"}),
                 "background_padding": ("INT", {"default": 20, "min": 0, "max": 100}),
+                "text_justification": (["left", "center", "right"], {"default": "left"}),
+                "vertical_position": (["top", "center", "bottom"], {"default": "center"}),
             }
         }
 
@@ -100,7 +103,7 @@ class BookToolsTextToImage:
             # Fallback to simple width calculation
             return sum(font.getbbox(char)[2] - font.getbbox(char)[0] for char in text)
 
-    def calculate_text_size(self, text, font_size, font_path, max_width, max_height, line_height_factor, char_spacing_factor):
+    def calculate_text_size(self, text, font_size, font_path, max_width, max_height, line_height_factor, char_spacing_factor, text_justification="left"):
         try:
             font = ImageFont.truetype(font_path, font_size)
         except Exception as e:
@@ -117,45 +120,51 @@ class BookToolsTextToImage:
         for paragraph in paragraphs:
             words = paragraph.split()
             current_line = []
-            current_width = 0
             
             for word in words:
-                # measure word width using char_spacing
-                word_width = 0
-                for char in word:
+                # Test if adding this word would exceed the line width
+                test_line = current_line + [word]
+                test_text = ' '.join(test_line)
+                
+                # Calculate test line width with character spacing (same method as draw_text_with_border)
+                test_width = 0
+                for i, char in enumerate(test_text):
                     bbox = font.getbbox(char)
-                    word_width += (bbox[2] - bbox[0]) + char_spacing
+                    test_width += (bbox[2] - bbox[0])
+                    if i < len(test_text) - 1:  # Add spacing between chars, but not after last
+                        test_width += char_spacing
                 
-                # Remove extra spacing after the last character
-                if word:
-                    word_width -= char_spacing
-                
-                # Consider space width
-                space_width = font.getbbox(' ')[2] if current_line else 0
-                
-                if current_width + word_width + space_width <= max_width:
+                if test_width <= max_width:
+                    # Word fits, add it to current line
                     current_line.append(word)
-                    current_width += word_width + space_width
                 else:
+                    # Word doesn't fit, finish current line and start new one
                     if current_line:
                         line_text = ' '.join(current_line)
                         lines.append(line_text)
+                        # Calculate line width consistently 
                         line_width = 0
-                        for char in line_text:
+                        for i, char in enumerate(line_text):
                             bbox = font.getbbox(char)
-                            line_width += (bbox[2] - bbox[0]) + char_spacing
+                            line_width += (bbox[2] - bbox[0])
+                            if i < len(line_text) - 1:  # Only add spacing between chars, not after last
+                                line_width += char_spacing
                         max_line_width = max(max_line_width, line_width)
                     
+                    # Start new line with current word
                     current_line = [word]
-                    current_width = word_width
             
+            # Add the last line if it exists
             if current_line:
                 line_text = ' '.join(current_line)
                 lines.append(line_text)
+                # Calculate line width consistently 
                 line_width = 0
-                for char in line_text:
+                for i, char in enumerate(line_text):
                     bbox = font.getbbox(char)
-                    line_width += (bbox[2] - bbox[0]) + char_spacing
+                    line_width += (bbox[2] - bbox[0])
+                    if i < len(line_text) - 1:  # Only add spacing between chars, not after last
+                        line_width += char_spacing
                 max_line_width = max(max_line_width, line_width)
         
         line_height = int(font_size * line_height_factor)
@@ -165,6 +174,35 @@ class BookToolsTextToImage:
         fits = (max_line_width <= max_width) and (total_height <= max_height)
         
         return lines, fits, max_line_width, total_height
+
+    def calculate_line_x_position(self, line, font, justification, container_width, padding, char_spacing_factor):
+        """Calculate x position for a line based on justification"""
+        # Calculate total line width including character spacing (same as draw_text_with_border)
+        total_width = 0
+        
+        for i, char in enumerate(line):
+            bbox = font.getbbox(char)
+            char_width = bbox[2] - bbox[0]
+            total_width += char_width
+            if i < len(line) - 1:  # Add spacing between chars, but not after last char
+                total_width += font.size * char_spacing_factor
+        
+        # Calculate effective width (considering only main padding)
+        effective_width = container_width - (2 * padding)
+        
+        if justification == "left":
+            return padding
+        elif justification == "center":
+            # Center within the effective area, but ensure it doesn't go outside boundaries
+            center_x = padding + (effective_width - total_width) // 2
+            # Ensure text doesn't go outside left or right boundaries
+            min_x = padding
+            max_x = container_width - total_width - padding
+            return max(min_x, min(max_x, center_x))
+        elif justification == "right":
+            return container_width - total_width - padding
+        else:
+            return padding  # Default to left
 
     def create_gradient_color(self, color, height, direction="vertical"):
         start_color = color
@@ -412,7 +450,8 @@ class BookToolsTextToImage:
                          line_height_factor, curve_amount=0.0, char_spacing=0.2, 
                          random_position=False, position_offset=20, shadow_offset=4,
                          outline_thickness=3, use_gradient=False, gradient_direction="vertical",
-                         background_style="none", background_color="auto", background_padding=20):
+                         background_style="none", background_color="auto", background_padding=20,
+                         text_justification="left", vertical_position="center"):
         image_tensor = image
         image_np = image_tensor.cpu().numpy()
         image = Image.fromarray((image_np.squeeze(0) * 255).astype(np.uint8))
@@ -433,7 +472,7 @@ class BookToolsTextToImage:
             
             # First check if min_font_size fits
             lines, fits, actual_width, actual_height = self.calculate_text_size(
-                text, min_font_size, font, effective_width, effective_height, line_height_factor, char_spacing
+                text, min_font_size, font, effective_width, effective_height, line_height_factor, char_spacing, text_justification
             )
             
             if fits:
@@ -441,7 +480,7 @@ class BookToolsTextToImage:
                 while low <= high:
                     mid = (low + high) // 2
                     lines, fits, actual_width, actual_height = self.calculate_text_size(
-                        text, mid, font, effective_width, effective_height, line_height_factor, char_spacing
+                        text, mid, font, effective_width, effective_height, line_height_factor, char_spacing, text_justification
                     )
                     
                     if fits:
@@ -478,8 +517,13 @@ class BookToolsTextToImage:
                 
             base_y += random.randint(-10, 10)
         else:
-            base_y = (height - total_height) // 2
-            horizontal_pos = "center"
+            # Use the vertical_position parameter (consistent with effective area calculation)
+            if vertical_position == "top":
+                base_y = padding
+            elif vertical_position == "bottom":
+                base_y = height - total_height - padding
+            else:  # center
+                base_y = padding + (effective_height - total_height) // 2
 
         y = base_y
         text_color = random.choice(self._colors)
@@ -494,24 +538,18 @@ class BookToolsTextToImage:
                 self.draw_curved_text(draw, line, loaded_font, width//2, y, width - 2*padding, curve_amount, char_spacing, 
                                     text_color=text_color)
             else:
-                # Calculate total line width including character spacing
-                total_width = 0
-                for i, char in enumerate(line):
-                    bbox = loaded_font.getbbox(char)
-                    char_width = bbox[2] - bbox[0]
-                    total_width += char_width
-                    if i < len(line) - 1:  # Add spacing between chars, but not after last char
-                        total_width += loaded_font.size * char_spacing
-                
-                if horizontal_pos == "left":
-                    x = padding + position_offset
-                else:  # center
-                    # Center based on actual total width including spacing
-                    x = (width - total_width) // 2
-
+                # Calculate x position based on justification
                 if random_position:
-                    x += random.randint(-10, 10)
-                
+                    # For random positioning, use the existing logic but adjust for justification
+                    if horizontal_pos == "left":
+                        base_x = padding + position_offset
+                    else:  # center
+                        base_x = self.calculate_line_x_position(line, loaded_font, "center", width, padding, char_spacing)
+                    x = base_x + random.randint(-10, 10)
+                else:
+                    # Use text justification parameter
+                    x = self.calculate_line_x_position(line, loaded_font, text_justification, width, padding, char_spacing)
+
                 self.draw_text_with_border(draw, line, loaded_font, x, y, char_spacing, text_color, shadow_offset, outline_thickness, use_gradient, gradient_direction, background_style, background_color, background_padding)
             
             y += line_height
