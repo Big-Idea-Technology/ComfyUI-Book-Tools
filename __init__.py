@@ -403,11 +403,13 @@ class BookToolsImageTextOverlay:
         if vertical_alignment == "top":
             y = start_y + padding
         elif vertical_alignment == "bottom":
-            y = start_y + textbox_height - total_text_height - padding
+            # Ensure text doesn't go above the textbox even if it's too large
+            y = max(start_y + padding, start_y + textbox_height - total_text_height - padding)
         else:  # middle
             if total_text_height <= effective_height:
                 y = start_y + padding + (effective_height - total_text_height) // 2
             else:
+                # Text is too large, center as much as possible
                 y = start_y + padding
 
         for line in optimal_lines:
