@@ -274,6 +274,7 @@ class BookToolsImageTextOverlay:
     def __init__(self, device="cpu"):
         self.device = device
     _alignments = ["left", "right", "center"]
+    _vertical_alignments = ["top", "middle", "bottom"]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -287,6 +288,7 @@ class BookToolsImageTextOverlay:
                 "min_font_size": ("INT", {"default": 12, "min": 1, "max": 256, "step": 1}),
                 "font": ("STRING", {"default": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"}), 
                 "alignment": (cls._alignments, {"default": "center"}),  
+                "vertical_alignment": (cls._vertical_alignments, {"default": "middle"}),  
                 "color": ("STRING", {"default": "#000000"}),  
                 "start_x": ("INT", {"default": 0}),  
                 "start_y": ("INT", {"default": 0}),
@@ -363,7 +365,7 @@ class BookToolsImageTextOverlay:
         return lines, fits, max_line_width, total_height
 
     def add_text_overlay(self, image, text, textbox_width, textbox_height, max_font_size, min_font_size, 
-                        font, alignment, color, start_x, start_y, padding, line_height_factor):
+                        font, alignment, vertical_alignment, color, start_x, start_y, padding, line_height_factor):
         image_tensor = image
         image_np = image_tensor.cpu().numpy()
         image_pil = Image.fromarray((image_np.squeeze(0) * 255).astype(np.uint8))
@@ -396,10 +398,17 @@ class BookToolsImageTextOverlay:
 
         line_height = int(optimal_font_size * line_height_factor)
         total_text_height = len(optimal_lines) * line_height
-        y = start_y + padding
-
-        if total_text_height <= effective_height:
-            y += (effective_height - total_text_height) // 2
+        
+        # Calculate vertical position based on vertical_alignment
+        if vertical_alignment == "top":
+            y = start_y + padding
+        elif vertical_alignment == "bottom":
+            y = start_y + textbox_height - total_text_height - padding
+        else:  # middle
+            if total_text_height <= effective_height:
+                y = start_y + padding + (effective_height - total_text_height) // 2
+            else:
+                y = start_y + padding
 
         for line in optimal_lines:
             if y + line_height > start_y + textbox_height:  
