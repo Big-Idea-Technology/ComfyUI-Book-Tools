@@ -18,7 +18,7 @@ Numpy (numpy)
 
 ## Methods
 
-- add_text_overlay: Adds text to an image according to specified parameters such as alignment, color, font size, etc.
+- add_text_overlay: Adds text to an image according to specified parameters such as horizontal alignment (left/right/center), vertical alignment (top/middle/bottom), color, font size, etc.
 - PromptSelector and PromptSchedule
 These classes are used to handle and format text prompts. They support selecting prompts based on input indices and applying pre- and post-text to formatted outputs.
 
