@@ -84,6 +84,7 @@ class BookToolsTextToImage:
                 "background_padding": ("INT", {"default": 20, "min": 0, "max": 100}),
                 "text_justification": (["left", "center", "right"], {"default": "left"}),
                 "vertical_position": (["top", "center", "bottom"], {"default": "center"}),
+                "text_color": ("STRING", {"multiline": False, "default": "random"}),
             }
         }
 
@@ -451,7 +452,7 @@ class BookToolsTextToImage:
                          random_position=False, position_offset=20, shadow_offset=4,
                          outline_thickness=3, use_gradient=False, gradient_direction="vertical",
                          background_style="none", background_color="auto", background_padding=20,
-                         text_justification="left", vertical_position="center"):
+                         text_justification="left", vertical_position="center", text_color="random"):
         image_tensor = image
         image_np = image_tensor.cpu().numpy()
         image = Image.fromarray((image_np.squeeze(0) * 255).astype(np.uint8))
@@ -526,7 +527,10 @@ class BookToolsTextToImage:
                 base_y = padding + (effective_height - total_height) // 2
 
         y = base_y
-        text_color = random.choice(self._colors)
+        if text_color == "random":
+            text_color = random.choice(self._colors)
+        else:
+            text_color = tuple(int(text_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
         
         for line in optimal_lines:
             if curve_amount != 0:
