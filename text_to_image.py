@@ -66,6 +66,7 @@ class BookToolsTextToImage:
             "required": {
                 "image": ("IMAGE", ),
                 "text": ("STRING", {"multiline": True, "default": "Hello"}),
+                "font_color": ("STRING", {"multiline": False, "default": "#000000"}),
                 "max_font_size": ("INT", {"default": 96, "min": 8, "max": 256}),
                 "min_font_size": ("INT", {"default": 32, "min": 8, "max": 256}),
                 "font": ("STRING", {"default": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"}),
@@ -452,11 +453,16 @@ class BookToolsTextToImage:
                          random_position=False, position_offset=20, shadow_offset=4,
                          outline_thickness=3, use_gradient=False, gradient_direction="vertical",
                          background_style="none", background_color="auto", background_padding=20,
-                         text_justification="left", vertical_position="center", text_color="random"):
+                         text_justification="left", vertical_position="center", text_color="random",
+                         font_color="#000000"):
         image_tensor = image
         image_np = image_tensor.cpu().numpy()
         image = Image.fromarray((image_np.squeeze(0) * 255).astype(np.uint8))
         width, height = image.size
+
+        # Override text_color with font_color
+        if font_color and font_color.strip():
+            text_color = font_color
         
         draw = ImageDraw.Draw(image)
         font = self.font_with_weight(font)
