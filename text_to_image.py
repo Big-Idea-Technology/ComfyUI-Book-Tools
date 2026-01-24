@@ -77,7 +77,7 @@ class BookToolsTextToImage:
                 "random_position": ("BOOLEAN", {"default": False}),
                 "position_offset": ("INT", {"default": 20, "min": 0}),
                 "shadow_offset": ("INT", {"default": 4, "min": 0, "max": 20}),
-                "outline_thickness": ("INT", {"default": 3, "min": 1, "max": 10}),
+                "outline_thickness": ("INT", {"default": 3, "min": 0, "max": 10}),
                 "use_gradient": ("BOOLEAN", {"default": False}),
                 "gradient_direction": (["vertical", "horizontal"], {"default": "vertical"}),
                 "background_style": (["none", "rectangle", "ribbon", "glow"], {"default": "none"}),
@@ -344,10 +344,11 @@ class BookToolsTextToImage:
             width = bbox[2] - bbox[0]
             
             # Enhanced outline with varied thickness
-            for dx, dy in [(i,j) for i in range(-outline_thickness, outline_thickness+1) 
-                          for j in range(-outline_thickness, outline_thickness+1)
-                          if (i*i + j*j) <= outline_thickness*outline_thickness]:
-                draw.text((current_x+dx, y+dy), char, font=font, fill=(0,0,0))
+            if outline_thickness > 0:
+                for dx, dy in [(i,j) for i in range(-outline_thickness, outline_thickness+1)
+                            for j in range(-outline_thickness, outline_thickness+1)
+                            if (i*i + j*j) <= outline_thickness*outline_thickness]:
+                    draw.text((current_x+dx, y+dy), char, font=font, fill=(0,0,0))
             
             if use_gradient:
                 # Create temporary image for this character
