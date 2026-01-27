@@ -406,9 +406,9 @@ class BookToolsTextToImage:
             
             current_x += width + (spacing if i < len(text) - 1 else 0)
 
-    def draw_curved_text(self, draw, text, font, x, y, width, curve_amount, char_spacing, text_color=None):
+    def draw_curved_text(self, draw, image, text, font, x, y, width, curve_amount, char_spacing, text_color=None):
         # Calculate the maximum width available for text
-        usable_width = min(width * 0.9, draw._image.width - 100)
+        usable_width = min(width * 0.9, image.width - 100)
         
         # Calculate spacing
         spacing = font.size * char_spacing
@@ -468,25 +468,24 @@ class BookToolsTextToImage:
             paste_y = int(y + offset_y - rotated.height/2)
             
             # Ensure within bounds
-            paste_x = max(0, min(draw._image.width - rotated.width, paste_x))
-            paste_y = max(0, min(draw._image.height - rotated.height, paste_y))
+            paste_x = max(0, min(image.width - rotated.width, paste_x))
+            paste_y = max(0, min(image.height - rotated.height, paste_y))
             
             mask = rotated.split()[3]
-            draw._image.paste(rotated, (paste_x, paste_y), mask)
+            image.paste(rotated, (paste_x, paste_y), mask)
             
             # Move to next character position with consistent spacing
             current_x += char_width
             if i < len(text) - 1:  # Only add spacing if not the last character
                 current_x += spacing
 
-    def create_text_image(self, image, text, font, padding,
+    def create_text_image(self, image, text, font_color, font, padding,
                          line_height_factor, curve_amount=0.0, char_spacing=0.2, 
                          random_position=False, position_offset=20, shadow_offset=4,
                          shadow_blur_radius=0, shadow_color="#000000",
                          outline_thickness=3, use_gradient=False, gradient_direction="vertical",
                          background_style="none", background_color="auto", background_padding=20,
-                         text_justification="left", vertical_position="center", text_color="random",
-                         font_color="#000000"):
+                         text_justification="left", vertical_position="center", text_color="random"):
         image_tensor = image
         image_np = image_tensor.cpu().numpy()
         image = Image.fromarray((image_np.squeeze(0) * 255).astype(np.uint8))
@@ -574,11 +573,11 @@ class BookToolsTextToImage:
         for line in optimal_lines:
             if curve_amount != 0:
                 # For curved text, center is already handled in draw_curved_text
-                self.draw_curved_text(draw, line, loaded_font, width//2, y+2, width - 2*padding, curve_amount, char_spacing, 
+                self.draw_curved_text(draw, image, line, loaded_font, width//2, y+2, width - 2*padding, curve_amount, char_spacing,
                                     text_color=(max(0, text_color[0] - 100),
                                               max(0, text_color[1] - 100),
                                               max(0, text_color[2] - 100)))
-                self.draw_curved_text(draw, line, loaded_font, width//2, y, width - 2*padding, curve_amount, char_spacing, 
+                self.draw_curved_text(draw, image, line, loaded_font, width//2, y, width - 2*padding, curve_amount, char_spacing,
                                     text_color=text_color)
             else:
                 # Calculate x position based on justification
