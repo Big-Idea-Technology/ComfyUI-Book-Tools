@@ -67,8 +67,6 @@ class BookToolsTextToImage:
                 "image": ("IMAGE", ),
                 "text": ("STRING", {"multiline": True, "default": "Hello"}),
                 "font_color": ("STRING", {"multiline": False, "default": "#000000"}),
-                "max_font_size": ("INT", {"default": 96, "min": 8, "max": 256}),
-                "min_font_size": ("INT", {"default": 32, "min": 8, "max": 256}),
                 "font": ("STRING", {"default": "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"}),
                 "padding": ("INT", {"default": 40, "min": 0}),
                 "line_height_factor": ("FLOAT", {"default": 1.4, "min": 0.5, "max": 3.0, "step": 0.1}),
@@ -77,6 +75,8 @@ class BookToolsTextToImage:
                 "random_position": ("BOOLEAN", {"default": False}),
                 "position_offset": ("INT", {"default": 20, "min": 0}),
                 "shadow_offset": ("INT", {"default": 4, "min": 0, "max": 20}),
+                "shadow_blur_radius": ("INT", {"default": 0, "min": 0, "max": 50}),
+                "shadow_color": ("STRING", {"multiline": False, "default": "#000000"}),
                 "outline_thickness": ("INT", {"default": 3, "min": 0, "max": 10}),
                 "use_gradient": ("BOOLEAN", {"default": False}),
                 "gradient_direction": (["vertical", "horizontal"], {"default": "vertical"}),
@@ -284,8 +284,9 @@ class BookToolsTextToImage:
         else:  # light
             return (225, 225, 225, 220)
 
-    def draw_text_with_border(self, draw, text, font, x, y, char_spacing, fill_color=None, 
-                             shadow_offset=4, outline_thickness=3, use_gradient=False, 
+    def draw_text_with_border(self, draw, image, text, font, x, y, char_spacing, fill_color=None,
+                             shadow_offset=4, shadow_blur_radius=0, shadow_color="#000000",
+                             outline_thickness=3, use_gradient=False,
                              gradient_direction="vertical", background_style="none", 
                              background_color="auto", background_padding=20):
         if fill_color is None:
@@ -324,19 +325,47 @@ class BookToolsTextToImage:
         # Create gradient colors if needed
         gradient_colors = self.create_gradient_color(fill_color, text_height, gradient_direction) if use_gradient else None
 
-        # Draw shadow first (offset version)
+        # Draw shadow first
         if shadow_offset > 0:
-            shadow_color = (30, 30, 30)
-            current_x = x
-            for i, char in enumerate(text):
-                bbox = font.getbbox(char)
-                width = bbox[2] - bbox[0]
+            # Parse shadow color
+            if isinstance(shadow_color, str):
+                s_color = tuple(int(shadow_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+            else:
+                s_color = shadow_color
 
-                # Draw shadow with increasing offset
-                shadow_y_offset = shadow_offset + (i % 2)  # Slightly varied shadow
-                draw.text((current_x + shadow_offset, y + shadow_y_offset), char, font=font, fill=shadow_color)
+            if shadow_blur_radius > 0:
+                # Create a temporary image for the shadow
+                shadow_img = Image.new('RGBA', image.size, (0, 0, 0, 0))
+                shadow_draw = ImageDraw.Draw(shadow_img)
 
-                current_x += width + (spacing if i < len(text) - 1 else 0)
+                current_x = x
+                for i, char in enumerate(text):
+                    bbox = font.getbbox(char)
+                    width = bbox[2] - bbox[0]
+
+                    # Draw shadow on the temp layer
+                    shadow_y_offset = shadow_offset + (i % 2)
+                    shadow_draw.text((current_x + shadow_offset, y + shadow_y_offset), char, font=font, fill=s_color)
+
+                    current_x += width + (spacing if i < len(text) - 1 else 0)
+
+                # Apply blur
+                shadow_img = shadow_img.filter(ImageFilter.GaussianBlur(radius=shadow_blur_radius))
+
+                # Composite shadow onto the main image
+                image.paste(shadow_img, (0, 0), shadow_img)
+            else:
+                # Standard shadow drawing (direct)
+                current_x = x
+                for i, char in enumerate(text):
+                    bbox = font.getbbox(char)
+                    width = bbox[2] - bbox[0]
+
+                    # Draw shadow with increasing offset
+                    shadow_y_offset = shadow_offset + (i % 2)  # Slightly varied shadow
+                    draw.text((current_x + shadow_offset, y + shadow_y_offset), char, font=font, fill=s_color)
+
+                    current_x += width + (spacing if i < len(text) - 1 else 0)
 
         # Draw outline and main text
         current_x = x
@@ -370,7 +399,7 @@ class BookToolsTextToImage:
                 gradient_img.putalpha(char_mask)
                 
                 # Paste the gradient character
-                draw._image.paste(gradient_img, (int(current_x), int(y)), char_mask)
+                image.paste(gradient_img, (int(current_x), int(y)), char_mask)
             else:
                 # Regular colored text
                 draw.text((current_x, y), char, font=font, fill=fill_color)
@@ -450,9 +479,10 @@ class BookToolsTextToImage:
             if i < len(text) - 1:  # Only add spacing if not the last character
                 current_x += spacing
 
-    def create_text_image(self, image, text, max_font_size, min_font_size, font, padding, 
+    def create_text_image(self, image, text, font, padding,
                          line_height_factor, curve_amount=0.0, char_spacing=0.2, 
                          random_position=False, position_offset=20, shadow_offset=4,
+                         shadow_blur_radius=0, shadow_color="#000000",
                          outline_thickness=3, use_gradient=False, gradient_direction="vertical",
                          background_style="none", background_color="auto", background_padding=20,
                          text_justification="left", vertical_position="center", text_color="random",
@@ -477,10 +507,10 @@ class BookToolsTextToImage:
             # Binary search to find optimal font size
             low = 8
             high = max(width, height) + 500
-            optimal_font_size = low  # Initialize with min_font_size
+            optimal_font_size = low  # Initialize with low
             optimal_lines = []
             
-            # First check if min_font_size fits
+            # First check if low font size fits
             lines, fits, actual_width, actual_height = self.calculate_text_size(
                 text, low, font, effective_width, effective_height, line_height_factor, char_spacing, text_justification
             )
@@ -500,7 +530,7 @@ class BookToolsTextToImage:
                     else:
                         high = mid - 1
             else:
-                # Even min_font_size doesn't fit, use it anyway with overflow
+                # Even low font size doesn't fit, use it anyway with overflow
                 optimal_font_size = low
                 optimal_lines = lines
             
@@ -563,7 +593,7 @@ class BookToolsTextToImage:
                     # Use text justification parameter
                     x = self.calculate_line_x_position(line, loaded_font, text_justification, width, padding, char_spacing)
 
-                self.draw_text_with_border(draw, line, loaded_font, x, y, char_spacing, text_color, shadow_offset, outline_thickness, use_gradient, gradient_direction, background_style, background_color, background_padding)
+                self.draw_text_with_border(draw, image, line, loaded_font, x, y, char_spacing, text_color, shadow_offset, shadow_blur_radius, shadow_color, outline_thickness, use_gradient, gradient_direction, background_style, background_color, background_padding)
             
             y += line_height
         
