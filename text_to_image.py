@@ -325,17 +325,18 @@ class BookToolsTextToImage:
         gradient_colors = self.create_gradient_color(fill_color, text_height, gradient_direction) if use_gradient else None
 
         # Draw shadow first (offset version)
-        shadow_color = (30, 30, 30)
-        current_x = x
-        for i, char in enumerate(text):
-            bbox = font.getbbox(char)
-            width = bbox[2] - bbox[0]
-            
-            # Draw shadow with increasing offset
-            shadow_y_offset = shadow_offset + (i % 2)  # Slightly varied shadow
-            draw.text((current_x + shadow_offset, y + shadow_y_offset), char, font=font, fill=shadow_color)
-            
-            current_x += width + (spacing if i < len(text) - 1 else 0)
+        if shadow_offset > 0:
+            shadow_color = (30, 30, 30)
+            current_x = x
+            for i, char in enumerate(text):
+                bbox = font.getbbox(char)
+                width = bbox[2] - bbox[0]
+
+                # Draw shadow with increasing offset
+                shadow_y_offset = shadow_offset + (i % 2)  # Slightly varied shadow
+                draw.text((current_x + shadow_offset, y + shadow_y_offset), char, font=font, fill=shadow_color)
+
+                current_x += width + (spacing if i < len(text) - 1 else 0)
 
         # Draw outline and main text
         current_x = x
@@ -474,13 +475,14 @@ class BookToolsTextToImage:
             effective_height = height - (2 * padding)
             
             # Binary search to find optimal font size
-            low, high = min_font_size, max_font_size
-            optimal_font_size = min_font_size  # Initialize with min_font_size
+            low = 8
+            high = max(width, height) + 500
+            optimal_font_size = low  # Initialize with min_font_size
             optimal_lines = []
             
             # First check if min_font_size fits
             lines, fits, actual_width, actual_height = self.calculate_text_size(
-                text, min_font_size, font, effective_width, effective_height, line_height_factor, char_spacing, text_justification
+                text, low, font, effective_width, effective_height, line_height_factor, char_spacing, text_justification
             )
             
             if fits:
@@ -499,7 +501,7 @@ class BookToolsTextToImage:
                         high = mid - 1
             else:
                 # Even min_font_size doesn't fit, use it anyway with overflow
-                optimal_font_size = min_font_size
+                optimal_font_size = low
                 optimal_lines = lines
             
             loaded_font = ImageFont.truetype(font, optimal_font_size)
